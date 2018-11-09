@@ -11,28 +11,24 @@ using System.Web;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using Shoko.Models.WebCache;
 using Shoko.WebCache.Models.Database;
 using Shoko.WebCache.Models.Shared;
-using Shoko.WebCache.Models.Shared.OAuth;
 
 namespace Shoko.WebCache.Controllers
 {
-    [Route("Auth")]
-    public class AuthController : ControllerBase
+    [Route("[Controller]")]
+    [ApiController]
+    public class AuthController : InjectedController
     {
-        private IConfiguration _configuration;
-        private WebCacheContext _db;
-
-        public AuthController(IConfiguration Configuration, WebCacheContext Context)
+        public AuthController(IConfiguration Configuration, WebCacheContext Context) : base(Configuration,Context)
         {
-            _configuration = Configuration;
-            _db = Context;
         }
 
         [HttpGet("OAuthToken/{encoded}")]
         public async Task<IActionResult> TokenAsync(string code, string state, string encoded)
         {
-            Encoded enc;
+            WebCache_OAuthData enc;
             try
             {
                 string normalbase64 = encoded.Replace("-", "+").Replace("_", "/");
@@ -41,7 +37,7 @@ namespace Shoko.WebCache.Controllers
                     normalbase64 += "==";
                 else if (mod == 3)
                     normalbase64 += "=";
-                enc = JsonConvert.DeserializeObject<Encoded>(Encoding.UTF8.GetString(Convert.FromBase64String(normalbase64)));
+                enc = JsonConvert.DeserializeObject<WebCache_OAuthData>(Encoding.UTF8.GetString(Convert.FromBase64String(normalbase64)));
                 if (enc == null)
                     return StatusCode(400, "Bad Request");
             }
@@ -49,12 +45,15 @@ namespace Shoko.WebCache.Controllers
             {
                 return StatusCode(400, "Bad Request");
             }
-            Dictionary<string, Credentials> providers = new Dictionary<string, Credentials>();
-            _configuration.GetSection("OAuthProviders").Bind(providers);
+
+            Session s = await VerifyTokenAsync(enc.Token);
+            if (s==null)
+                return StatusCode(403, "Invalid Token");            
+            Dictionary<string, Credentials> providers = GetOAuthProviders();
             if (!providers.ContainsKey(enc.Provider))
                 return StatusCode(404, $"Provider {enc.Provider} Not Found");
-            Credentials credentials = providers.GetValueOrDefault(enc.Provider,null);
-            AccessTokenWithState token = await GetTokenAsync(code, state, credentials, enc.OriginalRedirectUri);
+            Credentials credentials = providers[enc.Provider];
+            WebCache_OAuthAccessTokenWithState token = await GetTokenAsync(code, state, credentials, enc.OriginalRedirectUri);
             if (token == null)
                 return StatusCode(400, "Bad Request");
             if (enc.RedirectUri != null)
@@ -74,7 +73,7 @@ namespace Shoko.WebCache.Controllers
         }
 
         [HttpGet("Token/{encoded}")]
-        private async Task<AccessTokenWithState> GetTokenAsync(string code, string state, Credentials credentials, string redirecturi)
+        private async Task<WebCache_OAuthAccessTokenWithState> GetTokenAsync(string code, string state, Credentials credentials, string redirecturi)
         {
             Dictionary<string, string> postdata = new Dictionary<string, string>();
             postdata.Add("grant_type", "authorization_code");
@@ -95,7 +94,7 @@ namespace Shoko.WebCache.Controllers
                 {
                     return null;
                 }
-                AccessTokenWithState at = JsonConvert.DeserializeObject<AccessTokenWithState>(await response.Content.ReadAsStringAsync());
+                WebCache_OAuthAccessTokenWithState at = JsonConvert.DeserializeObject<WebCache_OAuthAccessTokenWithState>(await response.Content.ReadAsStringAsync());
                 at.state = state;
                 return at;
             }
@@ -104,21 +103,21 @@ namespace Shoko.WebCache.Controllers
         [HttpGet("RefreshToken/{token}")]
         public async Task<IActionResult> RefreshSession(string token)
         {
-            Session s = await _db.RefreshTokenAsync(token, _configuration.GetValue<int>("TokenExpirationInHours"));
+            Session s = await VerifyTokenAsync(token);
             if (s==null)
-                return StatusCode(403, "Token expired");
+                return StatusCode(403, "Invalid Token");
             return new JsonResult(s);
         }
 
         [HttpPost("AniDB")]
-        public async Task<IActionResult> Verify(AniDBLoggedInfo data)
+        public async Task<IActionResult> Verify(WebCache_AniDBLoggedInfo data)
         {
             CookieContainer cookieContainer = new CookieContainer();
             using (var handler = new HttpClientHandler { CookieContainer = cookieContainer })
             using (var client = new HttpClient(handler))
             {
-                string curi = _configuration.GetValue<string>("AniDBUserVerificationUri");
-                string regex = _configuration.GetValue<string>("AniDBUserVerificationRegEx");
+                string curi = GetAniDBUserVerificationUri();
+                string regex = GetAniDBUserVerificationRegEx();
                 client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.16241");
                 Uri uri = new Uri(curi);
                 Regex rn = new Regex(regex, RegexOptions.Singleline);
@@ -135,14 +134,17 @@ namespace Shoko.WebCache.Controllers
                         if (m.Groups.Count > 1)
                         {
                             string val = m.Groups["username"]?.Value;
-                            if (val != null)
+                            string id = m.Groups["id"]?.Value;
+                            int aniid;
+                            if (val != null && id!=null && int.TryParse(id,out aniid))
                             {
                                 if (string.Compare(val, data.UserName, StringComparison.InvariantCultureIgnoreCase) == 0)
                                 {
                                     Session s=new Session();
                                     s.Token = Guid.NewGuid().ToString().Replace("-", string.Empty);
-                                    s.Expiration=DateTime.UtcNow.AddHours(_configuration.GetValue<int>("TokenExpirationInHours"));
-                                    s.AniDBUserName = data.UserName;
+                                    s.Expiration=DateTime.UtcNow.AddHours(GetTokenExpirationInHours());
+                                    s.AniDBUserName = val;
+                                    s.AniDBUserId = aniid;
                                     _db.Add(s);
                                     await _db.SaveChangesAsync();
                                     return new JsonResult(s);

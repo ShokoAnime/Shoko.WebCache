@@ -8,8 +8,8 @@ namespace Shoko.WebCache.Models.Database
 {
     public class Session
     {
-        [Key]
         public string Token { get; set; }
+        public int AniDBUserId { get; set; }
         public string AniDBUserName { get; set; }
         public DateTime Expiration { get; set; }
     }
