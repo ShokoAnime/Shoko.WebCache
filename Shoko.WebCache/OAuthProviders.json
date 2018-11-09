@@ -1,0 +1,19 @@
+﻿{
+  "OAuthProviders": {
+    "GoogleDrive": {
+      "Id": "",
+      "Secret": "",
+      "TokenUri": ""
+    },
+    "AmazonDrive": {
+      "Id": "",
+      "Secret": "",
+      "TokenUri": ""
+    },
+    "OneDrive": {
+      "Id": "",
+      "Secret": "",
+      "TokenUri": ""
+    }
+  }
+}
