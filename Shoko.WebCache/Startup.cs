@@ -29,6 +29,7 @@ namespace Shoko.WebCache
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
             services.AddSingleton(Configuration);
             services.AddDbContext<WebCacheContext>(options=>options.UseSqlServer(Configuration.GetConnectionString("shokoconnection")));
+            services.AddMemoryCache();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)

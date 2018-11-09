@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Shoko.Models.WebCache;
@@ -21,7 +22,7 @@ namespace Shoko.WebCache.Controllers
     [ApiController]
     public class AuthController : InjectedController
     {
-        public AuthController(IConfiguration Configuration, WebCacheContext Context) : base(Configuration,Context)
+        public AuthController(IConfiguration cfg, WebCacheContext ctx, IMemoryCache mc) : base(cfg, ctx, mc)
         {
         }
 

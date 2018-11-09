@@ -14,6 +14,7 @@ namespace Shoko.WebCache.Models.Database
 
         }
         public DbSet<Session> Sessions { get; set; }
+        public DbSet<Role> Roles { get; set; }
         public DbSet<WB_CrossRef_AniDB_Other> CrossRef_AniDB_Others { get; set; }
     }
 }

@@ -2,17 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Shoko.Models.Server;
 
 namespace Shoko.WebCache.Models.Database
 {
-    public class WB_CrossRef_AniDB_Other : CrossRef_AniDB_Other
+    public class Role
     {
-        [JsonIgnore]
         public int AniDBUserId { get; set; }
 
-        [JsonIgnore]
-        public bool Approved { get; set; }
+        public RoleType Role { get; set; }
     }
 }

@@ -4,7 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using Shoko.Models.Plex.Login;
 using Shoko.WebCache.Models.Database;
 using Shoko.WebCache.Models.Shared;
 
@@ -14,11 +17,13 @@ namespace Shoko.WebCache.Controllers
     {
         internal IConfiguration _configuration;
         internal WebCacheContext _db;
+        internal IMemoryCache _mc;
 
-        public InjectedController(IConfiguration Configuration, WebCacheContext Context)
+        public InjectedController(IConfiguration cfg, WebCacheContext ctx, IMemoryCache mc)
         {
-            _configuration = Configuration;
-            _db = Context;
+            _configuration = cfg;
+            _db = ctx;
+            _mc = mc;
         }
 
         private InjectedController()
@@ -26,6 +31,17 @@ namespace Shoko.WebCache.Controllers
 
         }
 
+        public RoleType GetRole(int AniDBUserId)
+        {
+            if (!_mc.TryGetValue("roles", out Dictionary<int, Role> roles))
+            {
+                roles = _db.Roles.ToDictionary(a => a.AniDBUserId, a => a);
+                _mc.Set("roles", roles, TimeSpan.FromSeconds(60));
+            }
+            if (roles.ContainsKey(AniDBUserId))
+                return roles[AniDBUserId].Role;
+            return RoleType.None;
+        }
 
         public async Task<Session> VerifyTokenAsync(string token)
         {
@@ -53,7 +69,7 @@ namespace Shoko.WebCache.Controllers
         }
         public string GetAniDBUserVerificationRegEx()
         {
-            return _configuration.GetValue("AniDBUserVerificationRegEx", "<title>My\\sUserPage\\sof\\s(.*?)\\s-\\s(<username>.*?)\\s-\\sAniDB</title>");
+            return _configuration.GetValue("AniDBUserVerificationRegEx", "g_odd\\sname.*?value.*?>(?<username>.*?)\\s+?\\((?<id>.*?)\\)");
         }
         public Dictionary<string, Credentials> GetOAuthProviders()
         {
