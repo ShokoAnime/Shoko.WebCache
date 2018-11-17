@@ -5,11 +5,9 @@ using System.Threading.Tasks;
 
 namespace Shoko.WebCache.Models.Database
 {
-    [Flags]
-    public enum RoleType
+    public class WebCache_User
     {
-        None=0,
-        Admin=1,
-        Moderator=2
+        public int AniDBUserId { get; set; }
+        public string AniDBUserName { get; set; }
     }
 }

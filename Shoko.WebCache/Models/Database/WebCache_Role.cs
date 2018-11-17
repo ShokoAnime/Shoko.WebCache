@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Shoko.Models.WebCache;
 
 namespace Shoko.WebCache.Models.Database
 {
-    public class Role
+    public class WebCache_Role
     {
         public int AniDBUserId { get; set; }
 
-        public RoleType Role { get; set; }
+        public WebCache_RoleType Type { get; set; }
     }
 }

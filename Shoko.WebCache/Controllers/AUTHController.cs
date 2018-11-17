@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -9,12 +8,14 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Shoko.Models.WebCache;
+using Shoko.WebCache.Database;
+using Shoko.WebCache.Models;
 using Shoko.WebCache.Models.Database;
-using Shoko.WebCache.Models.Shared;
 
 namespace Shoko.WebCache.Controllers
 {
@@ -47,9 +48,9 @@ namespace Shoko.WebCache.Controllers
                 return StatusCode(400, "Bad Request");
             }
 
-            Session s = await VerifyTokenAsync(enc.Token);
-            if (s==null)
-                return StatusCode(403, "Invalid Token");            
+            SessionInfoWithError s = await VerifyTokenAsync(enc.Token);
+            if (s.Error!=null)
+                return s.Error;
             Dictionary<string, Credentials> providers = GetOAuthProviders();
             if (!providers.ContainsKey(enc.Provider))
                 return StatusCode(404, $"Provider {enc.Provider} Not Found");
@@ -64,13 +65,9 @@ namespace Shoko.WebCache.Controllers
                     separator = "&";
                 return Redirect(enc.RedirectUri + separator + token.GetQueryString());
             }
+
             string json = JsonConvert.SerializeObject(token, Formatting.None).Replace("\r", "").Replace("\n", "");
-            return new ContentResult
-            {
-                ContentType = "text/html",
-                StatusCode = (int) HttpStatusCode.OK,
-                Content = "<html><head><meta name=\"AccessToken\" content=\"" + HttpUtility.HtmlEncode(json) + "\"/></head></html>"
-            };
+            return new ContentResult {ContentType = "text/html", StatusCode = (int) HttpStatusCode.OK, Content = "<html><head><meta name=\"AccessToken\" content=\"" + HttpUtility.HtmlEncode(json) + "\"/></head></html>"};
         }
 
         [HttpGet("Token/{encoded}")]
@@ -95,6 +92,7 @@ namespace Shoko.WebCache.Controllers
                 {
                     return null;
                 }
+
                 WebCache_OAuthAccessTokenWithState at = JsonConvert.DeserializeObject<WebCache_OAuthAccessTokenWithState>(await response.Content.ReadAsStringAsync());
                 at.state = state;
                 return at;
@@ -104,9 +102,9 @@ namespace Shoko.WebCache.Controllers
         [HttpGet("RefreshToken/{token}")]
         public async Task<IActionResult> RefreshSession(string token)
         {
-            Session s = await VerifyTokenAsync(token);
-            if (s==null)
-                return StatusCode(403, "Invalid Token");
+            SessionInfoWithError s = await VerifyTokenAsync(token);
+            if (s.Error != null)
+                return s.Error;
             return new JsonResult(s);
         }
 
@@ -114,7 +112,7 @@ namespace Shoko.WebCache.Controllers
         public async Task<IActionResult> Verify(WebCache_AniDBLoggedInfo data)
         {
             CookieContainer cookieContainer = new CookieContainer();
-            using (var handler = new HttpClientHandler { CookieContainer = cookieContainer })
+            using (var handler = new HttpClientHandler {CookieContainer = cookieContainer})
             using (var client = new HttpClient(handler))
             {
                 string curi = GetAniDBUserVerificationUri();
@@ -137,24 +135,41 @@ namespace Shoko.WebCache.Controllers
                             string val = m.Groups["username"]?.Value;
                             string id = m.Groups["id"]?.Value;
                             int aniid;
-                            if (val != null && id!=null && int.TryParse(id,out aniid))
+                            if (val != null && id != null && int.TryParse(id, out aniid))
                             {
                                 if (string.Compare(val, data.UserName, StringComparison.InvariantCultureIgnoreCase) == 0)
                                 {
-                                    Session s=new Session();
+                                    WebCache_User u = await _db.Users.FirstOrDefaultAsync(a => a.AniDBUserId == aniid);
+                                    if (u == null)
+                                    {
+                                        u=new WebCache_User();
+                                        u.AniDBUserId = aniid;
+                                        u.AniDBUserName = val;
+                                        _db.Add(u);
+                                    }
+                                    else if (u.AniDBUserName != val)
+                                    {
+                                        u.AniDBUserName = val;
+                                    }
+                                    WebCache_Session s = new WebCache_Session();
                                     s.Token = Guid.NewGuid().ToString().Replace("-", string.Empty);
-                                    s.Expiration=DateTime.UtcNow.AddHours(GetTokenExpirationInHours());
+                                    s.Expiration = DateTime.UtcNow.AddHours(GetTokenExpirationInHours());
                                     s.AniDBUserName = val;
                                     s.AniDBUserId = aniid;
                                     _db.Add(s);
                                     await _db.SaveChangesAsync();
+                                    SessionInfoWithError si = new SessionInfoWithError { AniDBUserId = s.AniDBUserId, AniDBUserName = s.AniDBUserName, Expiration = s.Expiration, Token = s.Token };
+                                    si.Role = GetRole(s.AniDBUserId);
+                                    si.Error = null;
                                     return new JsonResult(s);
+
                                 }
                             }
                         }
                     }
                 }
             }
+
             return StatusCode(403, "Invalid credentials");
         }
     }

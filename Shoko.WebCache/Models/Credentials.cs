@@ -1,4 +1,4 @@
-﻿namespace Shoko.WebCache.Models.Shared
+﻿namespace Shoko.WebCache.Models
 {
     public class Credentials
     {

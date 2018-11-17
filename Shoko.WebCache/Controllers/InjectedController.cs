@@ -6,15 +6,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
-using Shoko.Models.Plex.Login;
+using Shoko.Models.WebCache;
+using Shoko.WebCache.Database;
+using Shoko.WebCache.Models;
 using Shoko.WebCache.Models.Database;
-using Shoko.WebCache.Models.Shared;
 
 namespace Shoko.WebCache.Controllers
 {
     public class InjectedController : ControllerBase
     {
+        private static object _lock;
         internal IConfiguration _configuration;
         internal WebCacheContext _db;
         internal IMemoryCache _mc;
@@ -28,52 +29,101 @@ namespace Shoko.WebCache.Controllers
 
         private InjectedController()
         {
-
         }
 
-        public RoleType GetRole(int AniDBUserId)
+        public WebCache_RoleType GetRole(int AniDBUserId)
         {
-            if (!_mc.TryGetValue("roles", out Dictionary<int, Role> roles))
+            if (!_mc.TryGetValue("roles", out Dictionary<int, WebCache_Role> roles))
             {
-                roles = _db.Roles.ToDictionary(a => a.AniDBUserId, a => a);
-                _mc.Set("roles", roles, TimeSpan.FromSeconds(60));
+                lock (_lock)
+                {
+                    roles = _db.Roles.ToDictionary(a => a.AniDBUserId, a => a);
+                    _mc.Set("roles", roles, TimeSpan.FromSeconds(60));
+                }
             }
+
             if (roles.ContainsKey(AniDBUserId))
-                return roles[AniDBUserId].Role;
-            return RoleType.None;
+                return roles[AniDBUserId].Type;
+            return WebCache_RoleType.None;
         }
 
-        public async Task<Session> VerifyTokenAsync(string token)
+        public WebCache_Ban GetBan(int AniDBUserId)
         {
-            Session s = await _db.Sessions.FirstOrDefaultAsync(a => a.Token == token);
+            if (!_mc.TryGetValue("bans", out Dictionary<int, WebCache_Ban> bans))
+            {
+                lock (_lock)
+                {
+                    bans = _db.Bans.ToDictionary(a => a.AniDBUserId, a => a);
+                    _mc.Set("bans", bans, TimeSpan.FromSeconds(60));
+                }
+            }
+
+            if (bans.ContainsKey(AniDBUserId))
+                return bans[AniDBUserId];
+            return null;
+        }
+
+        public void SetBan(int AniDBUserId, string reason, int hours)
+        {
+            lock (_lock)
+            {
+                WebCache_Ban b = _db.Bans.FirstOrDefault(a => a.AniDBUserId == AniDBUserId);
+                if (b == null)
+                {
+                    b = new WebCache_Ban();
+                    b.AniDBUserId = AniDBUserId;
+                    _db.Add(b);
+                }
+
+                b.Reason = reason;
+                b.ExpirationUTC = DateTime.UtcNow.AddHours(hours);
+                _db.SaveChanges();
+                Dictionary<int, WebCache_Ban> bans = _db.Bans.ToDictionary(a => a.AniDBUserId, a => a);
+                _mc.Set("bans", bans, TimeSpan.FromSeconds(60));
+            }
+        }
+
+        public async Task<SessionInfoWithError> VerifyTokenAsync(string token)
+        {
+            WebCache_Session s = await _db.Sessions.FirstOrDefaultAsync(a => a.Token == token);
             if (s == null)
-                return null;
+                return new SessionInfoWithError {Error = StatusCode(403, "Invalid Token")};
             if (s.Expiration < DateTime.UtcNow)
             {
                 _db.Remove(s);
                 await _db.SaveChangesAsync();
-                return null;
+                return new SessionInfoWithError {Error = StatusCode(403, "Invalid Token")};
             }
+
             s.Expiration = DateTime.UtcNow.AddHours(GetTokenExpirationInHours());
             await _db.SaveChangesAsync();
-            return s;
+            WebCache_Ban b = GetBan(s.AniDBUserId);
+            if (b != null)
+                return new SessionInfoWithError {Error = StatusCode(403, "Banned: " + b.Reason + " Expiration:" + b.ExpirationUTC.ToLongDateString())};
+            SessionInfoWithError si = new SessionInfoWithError {AniDBUserId = s.AniDBUserId, AniDBUserName = s.AniDBUserName, Expiration = s.Expiration, Token = s.Token};
+            si.Role = GetRole(s.AniDBUserId);
+            si.Error = null;
+            return si;
         }
 
         public int GetTokenExpirationInHours()
         {
             return _configuration.GetValue("TokenExpirationInHours", 48);
         }
+
         public string GetAniDBUserVerificationUri()
         {
             return _configuration.GetValue("AniDBUserVerificationUri", "http://anidb.net/perl-bin/animedb.pl?show=userpage");
         }
+
         public string GetAniDBUserVerificationRegEx()
         {
             return _configuration.GetValue("AniDBUserVerificationRegEx", "g_odd\\sname.*?value.*?>(?<username>.*?)\\s+?\\((?<id>.*?)\\)");
         }
+
         public Dictionary<string, Credentials> GetOAuthProviders()
         {
-            Dictionary<string, Credentials> creds=new Dictionary<string, Credentials>();
+            Dictionary<string, Credentials> creds = new Dictionary<string, Credentials>();
             try
             {
                 _configuration.GetSection("OAuthProviders").Bind(creds);
@@ -84,7 +134,5 @@ namespace Shoko.WebCache.Controllers
 
             return creds;
         }
-
-
     }
 }
