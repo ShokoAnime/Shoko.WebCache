@@ -88,6 +88,7 @@ namespace Shoko.WebCache
             col.CrossRefType = prov.CrossRefType;
             col.EpisodesData = prov.EpisodesData;
             col.EpisodesOverrideData = prov.EpisodesOverrideData;
+            col.AniDBUserId = prov.AniDBUserId;
             col.PopularityCount = popularCount;
             col.Type = type;
             return col;

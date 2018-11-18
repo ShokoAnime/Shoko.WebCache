@@ -11,7 +11,6 @@ namespace Shoko.WebCache.Models.Database
     {
         [JsonIgnore]
         public int AniDBUserId { get; set; }
-
         [JsonIgnore]
         public DateTime CreationDate { get; set; }
     }

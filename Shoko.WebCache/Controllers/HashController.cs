@@ -68,6 +68,8 @@ namespace Shoko.WebCache.Controllers
             bool update = false;
             foreach (WebCache_FileHash hash in hashes)
             {
+                if (string.IsNullOrEmpty(hash.ED2K) || string.IsNullOrEmpty(hash.CRC32) || string.IsNullOrEmpty(hash.MD5) || string.IsNullOrEmpty(hash.SHA1))
+                    continue;
                 hash.ED2K = hash.ED2K.ToUpperInvariant();
                 hash.CRC32 = hash.CRC32.ToUpperInvariant();
                 hash.MD5 = hash.MD5.ToUpperInvariant();
