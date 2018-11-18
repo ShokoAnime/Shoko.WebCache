@@ -20,6 +20,9 @@ namespace Shoko.WebCache.Controllers
 
 
         [HttpGet("{token}/{ed2k}")]
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
+        [Produces(typeof(Shoko.Models.WebCache.WebCache_Media))]
         public async Task<IActionResult> GetMediaInfo(string token, string ed2k)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
@@ -33,6 +36,7 @@ namespace Shoko.WebCache.Controllers
         }
 
         [HttpPost("{token}")]
+        [ProducesResponseType(403)]
         public async Task<IActionResult> AddMediaInfo(string token, [FromBody] WebCache_Media media)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);

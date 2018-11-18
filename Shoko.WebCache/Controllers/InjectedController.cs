@@ -31,7 +31,7 @@ namespace Shoko.WebCache.Controllers
         {
         }
 
-        public WebCache_RoleType GetRole(int AniDBUserId)
+        internal WebCache_RoleType GetRole(int AniDBUserId)
         {
             if (!_mc.TryGetValue("roles", out Dictionary<int, WebCache_Role> roles))
             {
@@ -47,7 +47,7 @@ namespace Shoko.WebCache.Controllers
             return WebCache_RoleType.None;
         }
 
-        public WebCache_Ban GetBan(int AniDBUserId)
+        internal WebCache_Ban GetBan(int AniDBUserId)
         {
             if (!_mc.TryGetValue("bans", out Dictionary<int, WebCache_Ban> bans))
             {
@@ -63,7 +63,7 @@ namespace Shoko.WebCache.Controllers
             return null;
         }
 
-        public void SetBan(int AniDBUserId, string reason, int hours)
+        internal void SetBan(int AniDBUserId, string reason, int hours)
         {
             lock (_lock)
             {
@@ -83,7 +83,7 @@ namespace Shoko.WebCache.Controllers
             }
         }
 
-        public async Task<SessionInfoWithError> VerifyTokenAsync(string token)
+        internal async Task<SessionInfoWithError> VerifyTokenAsync(string token)
         {
             WebCache_Session s = await _db.Sessions.FirstOrDefaultAsync(a => a.Token == token);
             if (s == null)
@@ -106,22 +106,22 @@ namespace Shoko.WebCache.Controllers
             return si;
         }
 
-        public int GetTokenExpirationInHours()
+        internal int GetTokenExpirationInHours()
         {
             return _configuration.GetValue("TokenExpirationInHours", 48);
         }
 
-        public string GetAniDBUserVerificationUri()
+        internal string GetAniDBUserVerificationUri()
         {
             return _configuration.GetValue("AniDBUserVerificationUri", "http://anidb.net/perl-bin/animedb.pl?show=userpage");
         }
 
-        public string GetAniDBUserVerificationRegEx()
+        internal string GetAniDBUserVerificationRegEx()
         {
             return _configuration.GetValue("AniDBUserVerificationRegEx", "g_odd\\sname.*?value.*?>(?<username>.*?)\\s+?\\((?<id>.*?)\\)");
         }
 
-        public Dictionary<string, Credentials> GetOAuthProviders()
+        internal Dictionary<string, Credentials> GetOAuthProviders()
         {
             Dictionary<string, Credentials> creds = new Dictionary<string, Credentials>();
             try

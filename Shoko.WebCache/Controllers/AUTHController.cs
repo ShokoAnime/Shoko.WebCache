@@ -28,7 +28,9 @@ namespace Shoko.WebCache.Controllers
         }
 
         [HttpGet("OAuthToken/{encoded}")]
-        public async Task<IActionResult> TokenAsync(string code, string state, string encoded)
+        [ProducesResponseType(400)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> Token(string code, string state, string encoded)
         {
             WebCache_OAuthData enc;
             try
@@ -70,7 +72,8 @@ namespace Shoko.WebCache.Controllers
             return new ContentResult {ContentType = "text/html", StatusCode = (int) HttpStatusCode.OK, Content = "<html><head><meta name=\"AccessToken\" content=\"" + HttpUtility.HtmlEncode(json) + "\"/></head></html>"};
         }
 
-        [HttpGet("Token/{encoded}")]
+ 
+
         private async Task<WebCache_OAuthAccessTokenWithState> GetTokenAsync(string code, string state, Credentials credentials, string redirecturi)
         {
             Dictionary<string, string> postdata = new Dictionary<string, string>();
@@ -100,6 +103,8 @@ namespace Shoko.WebCache.Controllers
         }
 
         [HttpGet("RefreshToken/{token}")]
+        [ProducesResponseType(403)]
+        [Produces(typeof(WebCache_SessionInfo))]
         public async Task<IActionResult> RefreshSession(string token)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
@@ -109,6 +114,8 @@ namespace Shoko.WebCache.Controllers
         }
 
         [HttpPost("AniDB")]
+        [ProducesResponseType(403)]
+        [Produces(typeof(WebCache_SessionInfo))]
         public async Task<IActionResult> Verify(WebCache_AniDBLoggedInfo data)
         {
             CookieContainer cookieContainer = new CookieContainer();

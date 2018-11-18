@@ -25,14 +25,17 @@ namespace Shoko.WebCache.Controllers
         }
 
         [HttpGet("CrossHash/{token}/{type}/{hash}/{size?}")]
-        public async Task<IActionResult> GetHash(string token, WebCache_HashType type, string hash, long? size)
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
+        [Produces(typeof(WebCache_FileHash))]
+        public async Task<IActionResult> GetHash(string token, int type, string hash, long? size)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
             if (s.Error != null)
                 return s.Error;
             hash = hash.ToUpperInvariant();
             WebCache_FileHash h = null;
-            switch (type)
+            switch ((WebCache_HashType)type)
             {
                 case WebCache_HashType.ED2K:
                     h = await _db.WebCache_FileHashes.FirstOrDefaultAsync(a => a.ED2K == hash);
@@ -56,6 +59,7 @@ namespace Shoko.WebCache.Controllers
         }
 
         [HttpPost("CrossHash/{token}")]
+        [ProducesResponseType(403)]
         public async Task<IActionResult> AddHashes(string token, [FromBody] List<WebCache_FileHash> hashes)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
@@ -118,12 +122,14 @@ namespace Shoko.WebCache.Controllers
             return Ok();
         }
         [HttpGet("Collision/{token}")]
+        [ProducesResponseType(403)]
+        [Produces(typeof(List<WebCache_FileHash_Collision_Info>))]
         public async Task<IActionResult> GetCollisions(string token)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
             if (s.Error != null)
                 return s.Error;
-            if (s.Role != WebCache_RoleType.Admin)
+            if ((s.Role&WebCache_RoleType.Admin)==0)
                 return StatusCode(403, "Admin Only");
             Dictionary<int,string> users=new Dictionary<int, string>();
             List<WebCache_FileHash_Collision> collisions = _db.WebCache_FileHash_Collisions.OrderBy(a=>a.WebCache_FileHash_Collision_Unique).ToList();
@@ -151,12 +157,14 @@ namespace Shoko.WebCache.Controllers
             return new JsonResult(rets);
         }
         [HttpPost("Collision/{token}/{id}")]
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
         public async Task<IActionResult> ApproveCollision(string token, int id)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
             if (s.Error != null)
                 return s.Error;
-            if (s.Role != WebCache_RoleType.Admin)
+            if ((s.Role & WebCache_RoleType.Admin) == 0)
                 return StatusCode(403, "Admin Only");
             WebCache_FileHash_Collision approved = await _db.WebCache_FileHash_Collisions.FirstOrDefaultAsync(a => a.WebCache_FileHash_Collision_Id == id);
             if (approved == null)

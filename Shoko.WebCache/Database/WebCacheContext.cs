@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Shoko.Models.WebCache;
 using Shoko.WebCache.Models.Database;
+using WebCache_CrossRef_AniDB_Provider = Shoko.WebCache.Models.Database.WebCache_CrossRef_AniDB_Provider;
 using WebCache_CrossRef_File_Episode = Shoko.WebCache.Models.Database.WebCache_CrossRef_File_Episode;
 using WebCache_Media = Shoko.WebCache.Models.Database.WebCache_Media;
 

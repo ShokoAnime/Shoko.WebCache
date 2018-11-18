@@ -6,11 +6,13 @@ using System.Web;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Shoko.Models.Enums;
 using Shoko.Models.Server;
 using Shoko.Models.Server.CrossRef;
 using Shoko.Models.WebCache;
 using Shoko.WebCache.Controllers;
 using Shoko.WebCache.Models.Database;
+using WebCache_CrossRef_AniDB_Provider = Shoko.WebCache.Models.Database.WebCache_CrossRef_AniDB_Provider;
 
 namespace Shoko.WebCache
 {
@@ -74,6 +76,20 @@ namespace Shoko.WebCache
             col.WebCache_FileHash_Collision_Unique = prov.WebCache_FileHash_Collision_Unique;
             col.WebCache_FileHash_Collision_Id = prov.WebCache_FileHash_Collision_Id;
             col.AniDBUserName = username;
+            return col;
+        }
+
+        public static Shoko.Models.WebCache.WebCache_CrossRef_AniDB_Provider ToWebCache(this WebCache_CrossRef_AniDB_Provider prov,WebCache_ReliabilityType type, int popularCount)
+        {
+            Shoko.Models.WebCache.WebCache_CrossRef_AniDB_Provider col=new Shoko.Models.WebCache.WebCache_CrossRef_AniDB_Provider();
+            col.CrossRefID = prov.CrossRefID;
+            col.AnimeID = prov.AnimeID;
+            col.CrossRefSource = prov.CrossRefSource;
+            col.CrossRefType = prov.CrossRefType;
+            col.EpisodesData = prov.EpisodesData;
+            col.EpisodesOverrideData = prov.EpisodesOverrideData;
+            col.PopularityCount = popularCount;
+            col.Type = type;
             return col;
         }
     }

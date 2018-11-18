@@ -9,11 +9,13 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Shoko.Models.Enums;
 using Shoko.Models.Plex.TVShow;
+using Shoko.Models.Server;
 using Shoko.Models.Server.CrossRef;
 using Shoko.Models.WebCache;
 using Shoko.WebCache.Database;
 using Shoko.WebCache.Models;
 using Shoko.WebCache.Models.Database;
+using WebCache_CrossRef_AniDB_Provider = Shoko.WebCache.Models.Database.WebCache_CrossRef_AniDB_Provider;
 using WebCache_CrossRef_File_Episode = Shoko.WebCache.Models.Database.WebCache_CrossRef_File_Episode;
 
 namespace Shoko.WebCache.Controllers
@@ -28,36 +30,40 @@ namespace Shoko.WebCache.Controllers
 
 
         [HttpGet("AniDB_Provider/{token}/{animeId}/{crossRefType}")]
-        public async Task<IActionResult> GetAniDB_ProviderAsync(string token, int animeId, CrossRefType crossRefType)
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
+        [Produces(typeof(List<Shoko.Models.WebCache.WebCache_CrossRef_AniDB_Provider>))]
+
+        public async Task<IActionResult> GetProvider(string token, int animeId, int crossRefType)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
             if (s.Error != null)
                 return s.Error;
 
-            List<WebCache_Reliability<CrossRef_AniDB_Provider>> results = new List<WebCache_Reliability<CrossRef_AniDB_Provider>>();
+            List<Shoko.Models.WebCache.WebCache_CrossRef_AniDB_Provider> results = new List<Shoko.Models.WebCache.WebCache_CrossRef_AniDB_Provider>();
             //First check for admin approved link
-            WebCache_CrossRef_AniDB_Provider r = await _db.CrossRef_AniDB_Providers.FirstOrDefaultAsync(a => a.Approved == WebCache_RoleType.Admin && a.AnimeID == animeId && a.CrossRefType == crossRefType);
+            WebCache_CrossRef_AniDB_Provider r = await _db.CrossRef_AniDB_Providers.FirstOrDefaultAsync(a => a.Approved == WebCache_RoleType.Admin && a.AnimeID == animeId && a.CrossRefType == (CrossRefType)crossRefType);
             if (r != null)
             {
-                results.Add(new WebCache_Reliability<CrossRef_AniDB_Provider> {Result = r, Type = WebCache_ReliabilityType.AdminVerified});
-                if (s.Role != WebCache_RoleType.Admin)
+                results.Add(r.ToWebCache(WebCache_ReliabilityType.AdminVerified,0));
+                if ((s.Role&WebCache_RoleType.Admin)==0)
                     return new JsonResult(results);
                 //If not Admin, early exit, otherwise other admin might want to evaluate
             }
 
             //Second Check for Moderator Approved Link
-            List<WebCache_CrossRef_AniDB_Provider> rl = await _db.CrossRef_AniDB_Providers.Where(a => a.Approved == WebCache_RoleType.Moderator && a.AnimeID == animeId && a.CrossRefType == crossRefType).ToListAsync();
+            List<WebCache_CrossRef_AniDB_Provider> rl = await _db.CrossRef_AniDB_Providers.Where(a => a.Approved == WebCache_RoleType.Moderator && a.AnimeID == animeId && a.CrossRefType == (CrossRefType)crossRefType).ToListAsync();
             if (rl.Count > 0)
-                results.AddRange(rl.Select(a => new WebCache_Reliability<CrossRef_AniDB_Provider> {Result = a, Type = WebCache_ReliabilityType.ModeratorVerified}));
+                results.AddRange(rl.Select(a => a.ToWebCache(WebCache_ReliabilityType.ModeratorVerified,0)));
             //Then The user link
-            r = await _db.CrossRef_AniDB_Providers.FirstOrDefaultAsync(a => a.AniDBUserId == s.AniDBUserId && a.AnimeID == animeId && a.CrossRefType == crossRefType);
+            r = await _db.CrossRef_AniDB_Providers.FirstOrDefaultAsync(a => a.AniDBUserId == s.AniDBUserId && a.AnimeID == animeId && a.CrossRefType == (CrossRefType)crossRefType);
             if (r != null)
-                results.Add(new WebCache_Reliability<CrossRef_AniDB_Provider> {Result = r, Type = WebCache_ReliabilityType.User});
+                results.Add(r.ToWebCache(WebCache_ReliabilityType.User,0));
             //And Now, the popular ones.
-            var res = await _db.CrossRef_AniDB_Providers.Where(a => a.AnimeID == animeId && a.CrossRefType == crossRefType && a.Approved == WebCache_RoleType.None).GroupBy(a => new {a.CrossRefID, a.EpisodesData, a.EpisodesOverrideData}).Select(a => new {Count = a.Count(), Result = a.First()}).OrderByDescending(a => a.Count).Take(5).ToListAsync();
+            var res = await _db.CrossRef_AniDB_Providers.Where(a => a.AnimeID == animeId && a.CrossRefType == (CrossRefType)crossRefType && a.Approved == WebCache_RoleType.None).GroupBy(a => new {a.CrossRefID, a.EpisodesData, a.EpisodesOverrideData}).Select(a => new {Count = a.Count(), Result = a.First()}).OrderByDescending(a => a.Count).Take(5).ToListAsync();
             foreach (var n in res)
             {
-                results.Add(new WebCache_Reliability<CrossRef_AniDB_Provider> {Result = n.Result, Type = WebCache_ReliabilityType.Popular, PopularityCount = n.Count});
+                results.Add(n.Result.ToWebCache(WebCache_ReliabilityType.Popular, n.Count));
             }
 
             if (results.Count > 0)
@@ -66,7 +72,8 @@ namespace Shoko.WebCache.Controllers
         }
 
         [HttpPost("AniDB_Provider/{token}/{approve?}")]
-        public async Task<IActionResult> AddAniDB_ProviderAsync([FromBody] CrossRef_AniDB_Provider cross, string token, bool? approve)
+        [ProducesResponseType(403)]
+        public async Task<IActionResult> AddProvider([FromBody] CrossRef_AniDB_Provider cross, string token, bool? approve)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
             if (s.Error != null)
@@ -82,7 +89,7 @@ namespace Shoko.WebCache.Controllers
             WebCache_RoleType rt = GetRole(s.AniDBUserId);
             r.FillWith(cross);
             //If user is Admin, and this come with approve flag, let approve it, and clean any other approval from the db
-            if (rt == WebCache_RoleType.Admin && approve.HasValue && approve.Value)
+            if ((rt&WebCache_RoleType.Admin)>0 && approve.HasValue && approve.Value)
             {
                 r.Approved = WebCache_RoleType.Admin;
                 List<WebCache_CrossRef_AniDB_Provider> reset_admins = await _db.CrossRef_AniDB_Providers.Where(a => a.AnimeID == cross.AnimeID && a.CrossRefType == cross.CrossRefType && a.AniDBUserId != s.AniDBUserId && a.Approved == WebCache_RoleType.Admin).ToListAsync();
@@ -90,7 +97,7 @@ namespace Shoko.WebCache.Controllers
                     w.Approved = WebCache_RoleType.None;
             }
             //If moderator, simple tag it.
-            else if (rt == WebCache_RoleType.Moderator)
+            else if ((rt&WebCache_RoleType.Moderator)>0)
                 r.Approved = WebCache_RoleType.Moderator;
             else
                 r.Approved = WebCache_RoleType.None;
@@ -101,12 +108,14 @@ namespace Shoko.WebCache.Controllers
         }
 
         [HttpDelete("AniDB_Provider/{token}/{animeId}/{crossRefType}")]
-        public async Task<IActionResult> DeleteAniDB_ProviderAsync(string token, int animeId, CrossRefType crossRefType)
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> DeleteProvider(string token, int animeId, int crossRefType)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
             if (s.Error != null)
                 return s.Error;
-            WebCache_CrossRef_AniDB_Provider r = await _db.CrossRef_AniDB_Providers.FirstOrDefaultAsync(a => a.AniDBUserId == s.AniDBUserId && a.AnimeID == animeId && a.CrossRefType == crossRefType);
+            WebCache_CrossRef_AniDB_Provider r = await _db.CrossRef_AniDB_Providers.FirstOrDefaultAsync(a => a.AniDBUserId == s.AniDBUserId && a.AnimeID == animeId && a.CrossRefType == (CrossRefType)crossRefType);
             if (r == null)
                 return StatusCode(404, "CrossRef Not Found");
             _db.Remove(r);
@@ -116,7 +125,10 @@ namespace Shoko.WebCache.Controllers
 
 
         [HttpGet("File_Episode/{token}/{hash}")]
-        public async Task<IActionResult> GetFile_EpisodeAsync(string token, string hash)
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
+        [Produces(typeof(CrossRef_File_Episode))]
+        public async Task<IActionResult> GetFileEpisode(string token, string hash)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
             if (s.Error != null)
@@ -127,7 +139,8 @@ namespace Shoko.WebCache.Controllers
             return new JsonResult(ep);
         }
         [HttpPost("File_Episode/{token}")]
-        public async Task<IActionResult> AddFile_EpisodeAsync(string token, [FromBody] WebCache_CrossRef_File_Episode episode)
+        [ProducesResponseType(403)]
+        public async Task<IActionResult> AddFileEpisode(string token, [FromBody] CrossRef_File_Episode episode)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
             if (s.Error != null)
@@ -144,7 +157,9 @@ namespace Shoko.WebCache.Controllers
             return Ok();
         }
         [HttpDelete("File_Episode/{token}/{hash}")]
-        public async Task<IActionResult> DeleteFile_EpisodeAsync(string token, string hash)
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> DeleteFileEpisode(string token, string hash)
         {
             SessionInfoWithError s = await VerifyTokenAsync(token);
             if (s.Error != null)
