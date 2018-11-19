@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -35,14 +36,8 @@ namespace Shoko.WebCache.Controllers
             return new JsonResult(m);
         }
 
-        [HttpPost("{token}")]
-        [ProducesResponseType(403)]
-        public async Task<IActionResult> AddMediaInfo(string token, [FromBody] WebCache_Media media)
+        private async Task<bool> AddMediaInfoInternal(SessionInfoWithError s, WebCache_Media media)
         {
-            SessionInfoWithError s = await VerifyTokenAsync(token);
-            if (s.Error != null)
-                return s.Error;
-            media.ED2K = media.ED2K.ToUpperInvariant();
             Models.Database.WebCache_Media m = await _db.WebCache_Medias.FirstOrDefaultAsync(a => a.ED2K == media.ED2K);
             if (m == null)
             {
@@ -51,7 +46,7 @@ namespace Shoko.WebCache.Controllers
             }
             else if (m.Version >= media.Version)
             {
-                return Ok();
+                return false;
             }
 
             m.Version = media.Version;
@@ -59,7 +54,36 @@ namespace Shoko.WebCache.Controllers
             m.ED2K = media.ED2K;
             m.CreationDate = DateTime.UtcNow;
             m.AniDBUserId = s.AniDBUserId;
-            await _db.SaveChangesAsync();
+            return true;
+        }
+        [HttpPost("{token}")]
+        [ProducesResponseType(403)]
+        public async Task<IActionResult> AddMediaInfo(string token, [FromBody] WebCache_Media media)
+        {
+            SessionInfoWithError s = await VerifyTokenAsync(token);
+            if (s.Error != null)
+                return s.Error;
+            media.ED2K = media.ED2K.ToUpperInvariant();
+            if (await AddMediaInfoInternal(s, media))
+                await _db.SaveChangesAsync();
+            return Ok();
+        }
+        [HttpPost("Batch/{token}")]
+        [ProducesResponseType(403)]
+        public async Task<IActionResult> AddMediaInfoBatch(string token, [FromBody] List<WebCache_Media> medias)
+        {
+            SessionInfoWithError s = await VerifyTokenAsync(token);
+            if (s.Error != null)
+                return s.Error;
+            bool persist = false;
+            foreach (WebCache_Media media in medias)
+            {
+                media.ED2K = media.ED2K.ToUpperInvariant();
+                if (await AddMediaInfoInternal(s, media))
+                    persist = true;
+            }
+            if (persist)
+                await _db.SaveChangesAsync();
             return Ok();
         }
     }

@@ -21,14 +21,14 @@ namespace Shoko.WebCache
         public static string GetQueryString(this WebCache_OAuthAccessTokenWithState at) => "access_token=" + HttpUtility.UrlEncode(at.access_token) + "&token_type=" + HttpUtility.UrlEncode(at.token_type) + "&expires_in=" + HttpUtility.UrlEncode(at.expires_in.ToString()) + "&state=" + HttpUtility.UrlEncode(at.state);
 
 
-        public static void FillWith(this CrossRef_AniDB_Provider prov, CrossRef_AniDB_Provider origin)
+        public static void FillWith(this WebCache_CrossRef_AniDB_Provider prov, Shoko.Models.WebCache.WebCache_CrossRef_AniDB_Provider origin)
         {
             prov.CrossRefID = origin.CrossRefID;
             prov.AnimeID = origin.AnimeID;
             prov.CrossRefSource = origin.CrossRefSource;
             prov.CrossRefType = origin.CrossRefType;
-            prov.EpisodesData = origin.EpisodesData;
             prov.EpisodesOverrideData = origin.EpisodesOverrideData;
+            prov.IsAdditive = origin.IsAdditive;
         }
         public static void FillWith(this CrossRef_File_Episode prov, CrossRef_File_Episode origin)
         {
@@ -86,10 +86,10 @@ namespace Shoko.WebCache
             col.AnimeID = prov.AnimeID;
             col.CrossRefSource = prov.CrossRefSource;
             col.CrossRefType = prov.CrossRefType;
-            col.EpisodesData = prov.EpisodesData;
             col.EpisodesOverrideData = prov.EpisodesOverrideData;
             col.AniDBUserId = prov.AniDBUserId;
             col.PopularityCount = popularCount;
+            col.IsAdditive = prov.IsAdditive;
             col.Type = type;
             return col;
         }

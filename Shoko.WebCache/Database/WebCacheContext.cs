@@ -40,9 +40,9 @@ namespace Shoko.WebCache.Database
             }
             {
                 var model = builder.Entity<WebCache_CrossRef_AniDB_Provider>();
-                model.ToTable("CrossRef_AniDB_Providers").HasKey(x => x.CrossRef_AniDB_ProviderID);
+                model.ToTable("CrossRef_AniDB_Providers").HasKey(x => x.WebCache_AniDB_ProviderID);
                 model.HasIndex(x => new {x.AnimeID, x.CrossRefType, x.Approved, x.AniDBUserId}).HasName("IX_CrossRef_AniDB_Provider_AnimeID_CrossRefType");
-                model.Property(x => x.CrossRef_AniDB_ProviderID).ValueGeneratedOnAdd();
+                model.Property(x => x.WebCache_AniDB_ProviderID).ValueGeneratedOnAdd();
                 model.Property(x=>x.AnimeID).IsRequired();
                 model.Property(x => x.AniDBUserId).IsRequired();
                 model.Property(x=>x.CrossRefID).IsRequired();
@@ -53,7 +53,7 @@ namespace Shoko.WebCache.Database
             {
                 var model = builder.Entity<WebCache_CrossRef_File_Episode>();
                 model.ToTable("CrossRef_File_Episodes").HasKey(x => x.CrossRef_File_EpisodeID);
-                model.HasIndex(x => new { x.AniDBUserId, x.Hash}).HasName("IX_CrossRef_File_Episodes_AniDBUserId_Hash");
+                model.HasIndex(x => new { x.AniDBUserId, x.Hash, x.EpisodeID}).HasName("IX_CrossRef_File_Episodes_AniDBUserId_Hash");
                 model.Property(x => x.CrossRef_File_EpisodeID).ValueGeneratedOnAdd();
                 model.Property(x => x.AnimeID).IsRequired();
                 model.Property(x => x.AniDBUserId).IsRequired();
