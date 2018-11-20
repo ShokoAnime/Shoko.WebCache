@@ -47,7 +47,24 @@ namespace Shoko.WebCache.Controllers
                 return roles[AniDBUserId].Type;
             return WebCache_RoleType.None;
         }
+        internal WebCache_RoleType SetRole(int AniDBUserId, WebCache_RoleType rt)
+        {
+            lock (_lock)
+            {
+                WebCache_Role b = _db.Roles.FirstOrDefault(a => a.AniDBUserId == AniDBUserId);
+                if (b == null)
+                {
+                    b = new WebCache_Role();
+                    b.AniDBUserId = AniDBUserId;
+                    _db.Add(b);
+                }
 
+                b.Type = rt;
+                _db.SaveChanges();
+                Dictionary<int, WebCache_Role> roles = _db.Roles.ToDictionary(a => a.AniDBUserId, a => a);
+                _mc.Set("roles", roles, TimeSpan.FromSeconds(60));
+            }
+        }
         internal WebCache_Ban GetBan(int AniDBUserId)
         {
             if (!_mc.TryGetValue("bans", out Dictionary<int, WebCache_Ban> bans))

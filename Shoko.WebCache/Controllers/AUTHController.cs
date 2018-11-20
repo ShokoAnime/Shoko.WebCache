@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using Shoko.Models.Plex.Login;
 using Shoko.Models.WebCache;
 using Shoko.WebCache.Database;
 using Shoko.WebCache.Models;
@@ -137,7 +138,24 @@ namespace Shoko.WebCache.Controllers
             if ((s.Role & WebCache_RoleType.Admin) == 0)
                 return StatusCode(403, "Admin Only");
             SetBan(ban.AniDBUserId,ban.Reason,ban.Hours);
-            return new JsonResult(s);
+            return Ok();
+        }
+        [HttpPost("SetRole/{token}/{anidbuserid}/{role}")]
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> SetRole(string token, int anidbuserid, int role)
+        {
+            SessionInfoWithError s = await VerifyTokenAsync(token);
+            if (s.Error != null)
+                return s.Error;
+            if ((s.Role & WebCache_RoleType.Admin) == 0)
+                return StatusCode(403, "Admin Only");
+            WebCache_User us = await _db.Users.FirstOrDefaultAsync(a => a.AniDBUserId == anidbuserid);
+            if (us==null)
+                return StatusCode(404, "User not found");
+            WebCache_RoleType rt = (WebCache_RoleType) role;
+            SetRole(anidbuserid, rt);
+            return Ok();
         }
         [HttpPost("AniDB")]
         [ProducesResponseType(403)]
