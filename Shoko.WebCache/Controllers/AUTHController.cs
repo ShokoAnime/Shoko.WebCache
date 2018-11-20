@@ -16,6 +16,7 @@ using Shoko.Models.WebCache;
 using Shoko.WebCache.Database;
 using Shoko.WebCache.Models;
 using Shoko.WebCache.Models.Database;
+using WebCache_Ban = Shoko.Models.WebCache.WebCache_Ban;
 
 namespace Shoko.WebCache.Controllers
 {
@@ -29,8 +30,7 @@ namespace Shoko.WebCache.Controllers
 
         [HttpGet("OAuthToken/{encoded}")]
         [ProducesResponseType(400)]
-        [ProducesResponseType(404)]
-        public async Task<IActionResult> Token(string code, string state, string encoded)
+        public async Task<IActionResult> Token(string code, string state, string error, string encoded)
         {
             WebCache_OAuthData enc;
             try
@@ -42,37 +42,52 @@ namespace Shoko.WebCache.Controllers
                 else if (mod == 3)
                     normalbase64 += "=";
                 enc = JsonConvert.DeserializeObject<WebCache_OAuthData>(Encoding.UTF8.GetString(Convert.FromBase64String(normalbase64)));
-                if (enc == null)
+                if (enc == null) //Bad encoded data, no way to redirect the error
                     return StatusCode(400, "Bad Request");
             }
-            catch (Exception)
+            catch (Exception) //Bad encoded data, no way to redirect the error
             {
                 return StatusCode(400, "Bad Request");
             }
-
+            WebCache_OAuthAccessTokenWithState errtoken=new WebCache_OAuthAccessTokenWithState();
             SessionInfoWithError s = await VerifyTokenAsync(enc.Token);
-            if (s.Error!=null)
-                return s.Error;
+            if (s.Error != null)
+            {
+                errtoken.error = s.Error.StatusCode + ": " + s.Error.ToString();
+                return ReturnResult(enc, errtoken);
+            }
             Dictionary<string, Credentials> providers = GetOAuthProviders();
             if (!providers.ContainsKey(enc.Provider))
-                return StatusCode(404, $"Provider {enc.Provider} Not Found");
+            {
+                errtoken.error = $"404: Provider {enc.Provider} Not Found";
+                return ReturnResult(enc, errtoken);
+
+            }
             Credentials credentials = providers[enc.Provider];
-            WebCache_OAuthAccessTokenWithState token = await GetTokenAsync(code, state, credentials, enc.OriginalRedirectUri);
+            var token = await GetTokenAsync(code, state, credentials, enc.OriginalRedirectUri);
             if (token == null)
-                return StatusCode(400, "Bad Request");
-            if (enc.RedirectUri != null)
+            {
+                errtoken.error = "400: Bad Request";
+                return ReturnResult(enc, errtoken);
+            }
+            return ReturnResult(enc, token);
+         }
+
+        private IActionResult ReturnResult(WebCache_OAuthData enc, WebCache_OAuthAccessTokenWithState token)
+        {
+            //If the encoded data has a redirect back, lets redirect the page,
+            //otherwise return a web page, with the access token in a head meta tag
+            if (enc.RedirectUri != null) 
             {
                 string separator = "?";
                 if (enc.RedirectUri.Contains("?"))
                     separator = "&";
                 return Redirect(enc.RedirectUri + separator + token.GetQueryString());
             }
-
             string json = JsonConvert.SerializeObject(token, Formatting.None).Replace("\r", "").Replace("\n", "");
-            return new ContentResult {ContentType = "text/html", StatusCode = (int) HttpStatusCode.OK, Content = "<html><head><meta name=\"AccessToken\" content=\"" + HttpUtility.HtmlEncode(json) + "\"/></head></html>"};
+            return new ContentResult { ContentType = "text/html", StatusCode = (int)HttpStatusCode.OK, Content = "<html><head><meta name=\"AccessToken\" content=\"" + HttpUtility.HtmlEncode(json) + "\"/></head></html>" };
         }
 
- 
 
         private async Task<WebCache_OAuthAccessTokenWithState> GetTokenAsync(string code, string state, Credentials credentials, string redirecturi)
         {
@@ -112,7 +127,18 @@ namespace Shoko.WebCache.Controllers
                 return s.Error;
             return new JsonResult(s);
         }
-
+        [HttpPost("Ban/{token}")]
+        [ProducesResponseType(403)]
+        public async Task<IActionResult> Ban(string token, Shoko.Models.WebCache.WebCache_Ban ban)
+        {
+            SessionInfoWithError s = await VerifyTokenAsync(token);
+            if (s.Error != null)
+                return s.Error;
+            if ((s.Role & WebCache_RoleType.Admin) == 0)
+                return StatusCode(403, "Admin Only");
+            SetBan(ban.AniDBUserId,ban.Reason,ban.Hours);
+            return new JsonResult(s);
+        }
         [HttpPost("AniDB")]
         [ProducesResponseType(403)]
         [Produces(typeof(WebCache_SessionInfo))]

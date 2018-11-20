@@ -10,6 +10,7 @@ using Shoko.Models.WebCache;
 using Shoko.WebCache.Database;
 using Shoko.WebCache.Models;
 using Shoko.WebCache.Models.Database;
+using WebCache_Ban = Shoko.WebCache.Models.Database.WebCache_Ban;
 
 namespace Shoko.WebCache.Controllers
 {
@@ -92,11 +93,13 @@ namespace Shoko.WebCache.Controllers
             {
                 _db.Remove(s);
                 await _db.SaveChangesAsync();
-                return new SessionInfoWithError {Error = StatusCode(403, "Invalid Token")};
+                return new SessionInfoWithError {Error = StatusCode(403, "Token Expired")};
             }
-
-            s.Expiration = DateTime.UtcNow.AddHours(GetTokenExpirationInHours());
-            await _db.SaveChangesAsync();
+            if (s.Expiration.AddHours(-8) < DateTime.UtcNow) //Refresh Expiration if we have 8 hours left
+            {
+                s.Expiration = DateTime.UtcNow.AddHours(GetTokenExpirationInHours());
+                await _db.SaveChangesAsync();
+            }
             WebCache_Ban b = GetBan(s.AniDBUserId);
             if (b != null)
                 return new SessionInfoWithError {Error = StatusCode(403, "Banned: " + b.Reason + " Expiration:" + b.ExpirationUTC.ToLongDateString())};

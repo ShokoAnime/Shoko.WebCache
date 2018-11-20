@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Shoko.Models.WebCache;
 using Shoko.WebCache.Models.Database;
+using WebCache_Ban = Shoko.WebCache.Models.Database.WebCache_Ban;
 using WebCache_CrossRef_AniDB_Provider = Shoko.WebCache.Models.Database.WebCache_CrossRef_AniDB_Provider;
 using WebCache_CrossRef_File_Episode = Shoko.WebCache.Models.Database.WebCache_CrossRef_File_Episode;
 using WebCache_Media = Shoko.WebCache.Models.Database.WebCache_Media;
@@ -106,7 +107,7 @@ namespace Shoko.WebCache.Database
         public DbSet<WebCache_Session> Sessions { get; set; }
         public DbSet<WebCache_User> Users { get; set; }
         public DbSet<WebCache_Role> Roles { get; set; }
-        public DbSet<WebCache_Ban> Bans { get; set; }
+        public DbSet<Models.Database.WebCache_Ban> Bans { get; set; }
         public DbSet<WebCache_CrossRef_AniDB_Provider> CrossRef_AniDB_Providers { get; set; }
         public DbSet<WebCache_CrossRef_File_Episode> CrossRef_File_Episodes { get; set; }
         public DbSet<WebCache_FileHash_Info> WebCache_FileHashes { get; set; }

@@ -7,6 +7,6 @@ namespace Shoko.WebCache.Models
     public class SessionInfoWithError : WebCache_SessionInfo
     {
         [JsonIgnore]
-        public IActionResult Error { get; set; }
+        public ObjectResult Error { get; set; }
     }
 }
