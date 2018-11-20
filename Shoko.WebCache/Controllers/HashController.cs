@@ -61,55 +61,52 @@ namespace Shoko.WebCache.Controllers
         private async Task<bool> InternalAddHash(SessionInfoWithError s, WebCache_FileHash hash)
         {
             bool update = false;
-            if (string.IsNullOrEmpty(hash.ED2K) || string.IsNullOrEmpty(hash.CRC32) || string.IsNullOrEmpty(hash.MD5) || string.IsNullOrEmpty(hash.SHA1))
+            if (string.IsNullOrEmpty(hash.ED2K) || string.IsNullOrEmpty(hash.CRC32) || string.IsNullOrEmpty(hash.MD5) || string.IsNullOrEmpty(hash.SHA1) || hash.FileSize==0)
                 return false;
             hash.ED2K = hash.ED2K.ToUpperInvariant();
             hash.CRC32 = hash.CRC32.ToUpperInvariant();
             hash.MD5 = hash.MD5.ToUpperInvariant();
             hash.SHA1 = hash.SHA1.ToUpperInvariant();
             WebCache_FileHash_Info ed2k = await _db.WebCache_FileHashes.FirstOrDefaultAsync(a => a.ED2K == hash.ED2K);
-            WebCache_FileHash_Info crc = await _db.WebCache_FileHashes.FirstOrDefaultAsync(a => a.CRC32 == hash.CRC32 && a.FileSize == hash.FileSize);
             WebCache_FileHash_Info md5 = await _db.WebCache_FileHashes.FirstOrDefaultAsync(a => a.MD5 == hash.MD5);
             WebCache_FileHash_Info sha1 = await _db.WebCache_FileHashes.FirstOrDefaultAsync(a => a.SHA1 == hash.SHA1);
             WebCache_FileHash_Info orig = new WebCache_FileHash_Info();
             orig.FillWith(hash);
             orig.AniDBUserId = s.AniDBUserId;
             orig.CreationDate = DateTime.UtcNow;
-            if (ed2k == null && crc == null && md5 == null && sha1 == null)
+            if (ed2k == null && md5 == null && sha1 == null) //Not CRC, we may get a normal collision in CRC
             {
                 _db.Add(orig);
                 update = true;
             }
-            List<WebCache_FileHash_Info> collisions = new List<WebCache_FileHash_Info>();
-            if (ed2k.CRC32 != hash.CRC32 || ed2k.FileSize != hash.FileSize || ed2k.SHA1 != hash.SHA1 || ed2k.MD5 != hash.MD5)
+            else
             {
-                collisions.Add(ed2k);
-            }
+                List<WebCache_FileHash_Info> collisions = new List<WebCache_FileHash_Info>();
+                if (ed2k.CRC32 != hash.CRC32 || ed2k.FileSize != hash.FileSize || ed2k.SHA1 != hash.SHA1 || ed2k.MD5 != hash.MD5)
+                {
+                    collisions.Add(ed2k);
+                }
 
-            if (crc.ED2K != hash.ED2K || crc.SHA1 != hash.SHA1 || crc.MD5 != hash.MD5)
-            {
-                if (!collisions.Contains(crc))
-                    collisions.Add(crc);
-            }
-            if (md5.CRC32 != hash.CRC32 || md5.FileSize != hash.FileSize || md5.SHA1 != hash.SHA1 || md5.ED2K != hash.ED2K)
-            {
-                if (!collisions.Contains(md5))
-                    collisions.Add(md5);
-            }
-            if (sha1.CRC32 != hash.CRC32 || sha1.FileSize != hash.FileSize || sha1.MD5 != hash.MD5 || sha1.ED2K != hash.ED2K)
-            {
-                if (!collisions.Contains(sha1))
-                    collisions.Add(sha1);
-            }
+                if (md5.CRC32 != hash.CRC32 || md5.FileSize != hash.FileSize || md5.SHA1 != hash.SHA1 || md5.ED2K != hash.ED2K)
+                {
+                    if (!collisions.Contains(md5))
+                        collisions.Add(md5);
+                }
+                if (sha1.CRC32 != hash.CRC32 || sha1.FileSize != hash.FileSize || sha1.MD5 != hash.MD5 || sha1.ED2K != hash.ED2K)
+                {
+                    if (!collisions.Contains(sha1))
+                        collisions.Add(sha1);
+                }
 
-            if (collisions.Count > 0)
-            {
-                if (collisions.Any(b => b.CollisionApproved))
-                    return false; //We already have the approved one, so this new one is wrong
-                collisions.Add(orig);
-                string unique = Guid.NewGuid().ToString().Replace("-", String.Empty);
-                _db.AddRange(collisions.Select(a => a.ToCollision(unique)));
-                update = true;
+                if (collisions.Count > 0)
+                {
+                    if (collisions.Any(b => b.CollisionApproved))
+                        return false; //We already have the approved one, so this new one is wrong
+                    collisions.Add(orig);
+                    string unique = Guid.NewGuid().ToString().Replace("-", String.Empty);
+                    _db.AddRange(collisions.Select(a => a.ToCollision(unique)));
+                    update = true;
+                }
             }
             return update;
         }
