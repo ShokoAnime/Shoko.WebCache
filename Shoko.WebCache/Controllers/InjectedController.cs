@@ -47,19 +47,29 @@ namespace Shoko.WebCache.Controllers
                 return roles[AniDBUserId].Type;
             return WebCache_RoleType.None;
         }
-        internal WebCache_RoleType SetRole(int AniDBUserId, WebCache_RoleType rt)
+        internal void SetRole(int AniDBUserId, WebCache_RoleType rt)
         {
             lock (_lock)
             {
                 WebCache_Role b = _db.Roles.FirstOrDefault(a => a.AniDBUserId == AniDBUserId);
-                if (b == null)
+                if (rt == WebCache_RoleType.None)
                 {
+                    //Kill Role
+                    if (b != null)
+                        _db.Remove(b);
+                }
+                else if (b == null)
+                {
+                    //Create rtole
                     b = new WebCache_Role();
                     b.AniDBUserId = AniDBUserId;
                     _db.Add(b);
                 }
-
-                b.Type = rt;
+                else
+                {
+                    //Update role
+                    b.Type = rt;
+                }
                 _db.SaveChanges();
                 Dictionary<int, WebCache_Role> roles = _db.Roles.ToDictionary(a => a.AniDBUserId, a => a);
                 _mc.Set("roles", roles, TimeSpan.FromSeconds(60));
@@ -101,7 +111,7 @@ namespace Shoko.WebCache.Controllers
             }
         }
 
-        internal async Task<SessionInfoWithError> VerifyTokenAsync(string token)
+        internal async Task<SessionInfoWithError> VerifyTokenAsync(string token, bool force=false)
         {
             WebCache_Session s = await _db.Sessions.FirstOrDefaultAsync(a => a.Token == token);
             if (s == null)
@@ -112,7 +122,7 @@ namespace Shoko.WebCache.Controllers
                 await _db.SaveChangesAsync();
                 return new SessionInfoWithError {Error = StatusCode(403, "Token Expired")};
             }
-            if (s.Expiration.AddHours(-8) < DateTime.UtcNow) //Refresh Expiration if we have 8 hours left
+            if ((s.Expiration.AddHours(-8) < DateTime.UtcNow) || force) //Refresh Expiration if we have 8 hours left
             {
                 s.Expiration = DateTime.UtcNow.AddHours(GetTokenExpirationInHours());
                 await _db.SaveChangesAsync();
