@@ -123,7 +123,7 @@ namespace Shoko.WebCache.Controllers
         [Produces(typeof(WebCache_SessionInfo))]
         public async Task<IActionResult> RefreshSession(string token)
         {
-            SessionInfoWithError s = await VerifyTokenAsync(token);
+            SessionInfoWithError s = await VerifyTokenAsync(token,true);
             if (s.Error != null)
                 return s.Error;
             return new JsonResult(s);
