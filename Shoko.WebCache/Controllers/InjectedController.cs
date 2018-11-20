@@ -11,6 +11,7 @@ using Shoko.WebCache.Database;
 using Shoko.WebCache.Models;
 using Shoko.WebCache.Models.Database;
 using WebCache_Ban = Shoko.WebCache.Models.Database.WebCache_Ban;
+// ReSharper disable InconsistentlySynchronizedField
 
 namespace Shoko.WebCache.Controllers
 {
@@ -118,9 +119,10 @@ namespace Shoko.WebCache.Controllers
                 return new SessionInfoWithError {Error = StatusCode(403, "Invalid Token")};
             if (s.Expiration < DateTime.UtcNow)
             {
-                _db.Remove(s);
+                //Lets reuse this call to kill em all, and do some database cleaning.
+                _db.RemoveRange(_db.Sessions.Where(a=>a.Expiration<DateTime.UtcNow));
                 await _db.SaveChangesAsync();
-                return new SessionInfoWithError {Error = StatusCode(403, "Token Expired")};
+                return new SessionInfoWithError {Error = StatusCode(403, "Invalid Token") };
             }
             if ((s.Expiration.AddHours(-8) < DateTime.UtcNow) || force) //Refresh Expiration if we have 8 hours left
             {

@@ -45,7 +45,8 @@ namespace Shoko.WebCache
             });
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env,
+            WebCacheContext context)
         {
             if (env.IsDevelopment())
             {
@@ -63,6 +64,7 @@ namespace Shoko.WebCache
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "Shoko WebCache Api v1.0");
             });
+            context.Database.EnsureCreated();
         }
     }
 }

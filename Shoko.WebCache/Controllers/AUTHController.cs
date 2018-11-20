@@ -36,7 +36,7 @@ namespace Shoko.WebCache.Controllers
             WebCache_OAuthData enc;
             try
             {
-                string normalbase64 = encoded.Replace("-", "+").Replace("_", "/");
+                string normalbase64 = encoded.Replace("-", "+").Replace("_", "/"); //Convert BASE64URL to normal Base64
                 int mod = normalbase64.Length % 4;
                 if (mod == 2)
                     normalbase64 += "==";

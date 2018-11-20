@@ -50,6 +50,14 @@ namespace Shoko.WebCache
             prov.MD5 = origin.MD5;
             prov.SHA1 = origin.SHA1;
         }
+        public static void FillWith(this WebCache_FileHash prov, WebCache_FileHash_Collision origin)
+        {
+            prov.CRC32 = origin.CRC32;
+            prov.ED2K = origin.ED2K;
+            prov.FileSize = origin.FileSize;
+            prov.MD5 = origin.MD5;
+            prov.SHA1 = origin.SHA1;
+        }
         public static WebCache_FileHash_Collision ToCollision(this WebCache_FileHash_Info prov, string unique)
         {
             WebCache_FileHash_Collision col=new WebCache_FileHash_Collision();
