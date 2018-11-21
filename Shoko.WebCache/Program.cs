@@ -23,6 +23,13 @@ namespace Shoko.WebCache
                 {
                     config.AddJsonFile("OAuthProviders.json", optional: false, reloadOnChange: true);
                 })
+                .ConfigureLogging((hostingContext, logging) =>
+                {
+                    logging.AddConfiguration(hostingContext.Configuration.GetSection("Logging"));
+                    logging.AddConsole();
+                    logging.AddDebug();
+                    logging.AddEventSourceLogger();
+                })
                 .UseStartup<Startup>();
     }
 }

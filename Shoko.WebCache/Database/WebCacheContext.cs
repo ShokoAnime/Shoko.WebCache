@@ -19,6 +19,7 @@ namespace Shoko.WebCache.Database
             {
                 var model = builder.Entity<WebCache_Session>();
                 model.ToTable("Sessions").HasKey(x => x.Token);
+                model.Property(x => x.Token).IsRequired().ValueGeneratedNever();
                 model.Property(x => x.Expiration).IsRequired();
                 model.Property(x => x.AniDBUserId).IsRequired();
                 model.Property(x => x.AniDBUserName).IsRequired();
@@ -28,16 +29,19 @@ namespace Shoko.WebCache.Database
                 var model = builder.Entity<WebCache_User>();
                 model.ToTable("Users").HasKey(x => x.AniDBUserId);
                 model.Property(x => x.AniDBUserName).IsRequired();
+                model.Property(x => x.AniDBUserId).IsRequired().ValueGeneratedNever();
             }
             {
                 var model = builder.Entity<WebCache_Role>();
                 model.ToTable("Roles").HasKey(x => x.AniDBUserId);
                 model.Property(x => x.Type).IsRequired();
+                model.Property(x => x.AniDBUserId).IsRequired().ValueGeneratedNever();
             }
             {
                 var model = builder.Entity<WebCache_Ban>();
                 model.ToTable("Bans").HasKey(x => x.AniDBUserId);
                 model.Property(x => x.ExpirationUTC).IsRequired();
+                model.Property(x => x.AniDBUserId).IsRequired().ValueGeneratedNever();
             }
             {
                 var model = builder.Entity<WebCache_CrossRef_AniDB_Provider>();
@@ -69,7 +73,7 @@ namespace Shoko.WebCache.Database
                 model.HasIndex(x => x.MD5).HasName("IX_FileHashes_MD5");
                 model.HasIndex(x => x.SHA1).HasName("IX_FileHashes_SHA1");
                 model.HasIndex(x => new { x.CRC32, x.FileSize }).HasName("IX_FileHashes_CRC32_FileSize");
-                model.Property(x => x.ED2K).IsRequired();
+                model.Property(x => x.ED2K).IsRequired().ValueGeneratedNever();
                 model.Property(x => x.MD5).IsRequired();
                 model.Property(x => x.SHA1).IsRequired();
                 model.Property(x => x.CRC32).IsRequired();
@@ -97,7 +101,7 @@ namespace Shoko.WebCache.Database
                 model.ToTable("Medias").HasKey(x => x.ED2K);
                 model.Property(x => x.AniDBUserId).IsRequired();
                 model.Property(x => x.CreationDate).IsRequired();
-                model.Property(x => x.ED2K).IsRequired();
+                model.Property(x => x.ED2K).IsRequired().ValueGeneratedNever();
                 model.Property(x => x.MediaInfo).IsRequired();
                 model.Property(x => x.Version).IsRequired();
             }
@@ -107,7 +111,7 @@ namespace Shoko.WebCache.Database
         public DbSet<WebCache_Session> Sessions { get; set; }
         public DbSet<WebCache_User> Users { get; set; }
         public DbSet<WebCache_Role> Roles { get; set; }
-        public DbSet<Models.Database.WebCache_Ban> Bans { get; set; }
+        public DbSet<WebCache_Ban> Bans { get; set; }
         public DbSet<WebCache_CrossRef_AniDB_Provider> CrossRef_AniDB_Providers { get; set; }
         public DbSet<WebCache_CrossRef_File_Episode> CrossRef_File_Episodes { get; set; }
         public DbSet<WebCache_FileHash_Info> WebCache_FileHashes { get; set; }

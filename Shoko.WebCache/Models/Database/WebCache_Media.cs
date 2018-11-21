@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
-using Shoko.Models.WebCache;
 
 namespace Shoko.WebCache.Models.Database
 {
@@ -11,6 +7,7 @@ namespace Shoko.WebCache.Models.Database
     {
         [JsonIgnore]
         public int AniDBUserId { get; set; }
+
         [JsonIgnore]
         public DateTime CreationDate { get; set; }
     }

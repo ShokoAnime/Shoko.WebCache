@@ -1,6 +1,4 @@
-﻿using Newtonsoft.Json;
-using Shoko.Models.Enums;
-using Shoko.Models.Server.CrossRef;
+﻿using Shoko.Models.Enums;
 using Shoko.Models.WebCache;
 
 namespace Shoko.WebCache.Models.Database

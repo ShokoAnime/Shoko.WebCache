@@ -6,32 +6,34 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Shoko.Models.WebCache;
 using Shoko.WebCache.Database;
 using Shoko.WebCache.Models;
 using Shoko.WebCache.Models.Database;
 using WebCache_Ban = Shoko.WebCache.Models.Database.WebCache_Ban;
+
 // ReSharper disable InconsistentlySynchronizedField
 
 namespace Shoko.WebCache.Controllers
 {
     public class InjectedController : ControllerBase
     {
-        private static object _lock;
-        internal IConfiguration _configuration;
-        internal WebCacheContext _db;
-        internal IMemoryCache _mc;
+        private static readonly object _lock = new object();
+        internal readonly IConfiguration _configuration;
+        internal readonly WebCacheContext _db;
+        internal readonly ILogger _logger;
+        internal readonly IMemoryCache _mc;
 
-        public InjectedController(IConfiguration cfg, WebCacheContext ctx, IMemoryCache mc)
+        public InjectedController(IConfiguration cfg, WebCacheContext ctx, IMemoryCache mc, ILogger logger)
         {
             _configuration = cfg;
             _db = ctx;
             _mc = mc;
+            _logger = logger;
         }
 
-        private InjectedController()
-        {
-        }
+
 
         internal WebCache_RoleType GetRole(int AniDBUserId)
         {
@@ -48,6 +50,7 @@ namespace Shoko.WebCache.Controllers
                 return roles[AniDBUserId].Type;
             return WebCache_RoleType.None;
         }
+
         internal void SetRole(int AniDBUserId, WebCache_RoleType rt)
         {
             lock (_lock)
@@ -71,11 +74,13 @@ namespace Shoko.WebCache.Controllers
                     //Update role
                     b.Type = rt;
                 }
+
                 _db.SaveChanges();
                 Dictionary<int, WebCache_Role> roles = _db.Roles.ToDictionary(a => a.AniDBUserId, a => a);
                 _mc.Set("roles", roles, TimeSpan.FromSeconds(60));
             }
         }
+
         internal WebCache_Ban GetBan(int AniDBUserId)
         {
             if (!_mc.TryGetValue("bans", out Dictionary<int, WebCache_Ban> bans))
@@ -112,7 +117,7 @@ namespace Shoko.WebCache.Controllers
             }
         }
 
-        internal async Task<SessionInfoWithError> VerifyTokenAsync(string token, bool force=false)
+        internal async Task<SessionInfoWithError> VerifyTokenAsync(string token, bool force = false)
         {
             WebCache_Session s = await _db.Sessions.FirstOrDefaultAsync(a => a.Token == token);
             if (s == null)
@@ -120,15 +125,17 @@ namespace Shoko.WebCache.Controllers
             if (s.Expiration < DateTime.UtcNow)
             {
                 //Lets reuse this call to kill em all, and do some database cleaning.
-                _db.RemoveRange(_db.Sessions.Where(a=>a.Expiration<DateTime.UtcNow));
+                _db.RemoveRange(_db.Sessions.Where(a => a.Expiration < DateTime.UtcNow));
                 await _db.SaveChangesAsync();
-                return new SessionInfoWithError {Error = StatusCode(403, "Invalid Token") };
+                return new SessionInfoWithError {Error = StatusCode(403, "Invalid Token")};
             }
-            if ((s.Expiration.AddHours(-8) < DateTime.UtcNow) || force) //Refresh Expiration if we have 8 hours left
+
+            if (s.Expiration.AddHours(-8) < DateTime.UtcNow || force) //Refresh Expiration if we have less than 8 hours left
             {
                 s.Expiration = DateTime.UtcNow.AddHours(GetTokenExpirationInHours());
                 await _db.SaveChangesAsync();
             }
+
             WebCache_Ban b = GetBan(s.AniDBUserId);
             if (b != null)
                 return new SessionInfoWithError {Error = StatusCode(403, "Banned: " + b.Reason + " Expiration:" + b.ExpirationUTC.ToLongDateString())};
@@ -148,6 +155,11 @@ namespace Shoko.WebCache.Controllers
             return _configuration.GetValue("AniDBUserVerificationUri", "http://anidb.net/perl-bin/animedb.pl?show=userpage");
         }
 
+        internal string GetAniDBLogoutUri()
+        {
+            return _configuration.GetValue("AniDBLogoutUri", "http://anidb.net/perl-bin/animedb.pl?show=main&xdo.logout=1");
+        }
+
         internal string GetAniDBUserVerificationRegEx()
         {
             return _configuration.GetValue("AniDBUserVerificationRegEx", "g_odd\\sname.*?value.*?>(?<username>.*?)\\s+?\\((?<id>.*?)\\)");
@@ -160,8 +172,9 @@ namespace Shoko.WebCache.Controllers
             {
                 _configuration.GetSection("OAuthProviders").Bind(creds);
             }
-            catch (Exception e)
+            catch (Exception)
             {
+                //ignore
             }
 
             return creds;
