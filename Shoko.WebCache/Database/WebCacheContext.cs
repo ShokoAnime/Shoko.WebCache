@@ -19,7 +19,7 @@ namespace Shoko.WebCache.Database
             {
                 var model = builder.Entity<WebCache_Session>();
                 model.ToTable("Sessions").HasKey(x => x.Token);
-                model.Property(x => x.Token).IsRequired().ValueGeneratedNever();
+                model.Property(x => x.Token).IsRequired().ValueGeneratedNever().HasMaxLength(40);
                 model.Property(x => x.Expiration).IsRequired();
                 model.Property(x => x.AniDBUserId).IsRequired();
                 model.Property(x => x.AniDBUserName).IsRequired();
@@ -62,7 +62,7 @@ namespace Shoko.WebCache.Database
                 model.Property(x => x.CrossRef_File_EpisodeID).ValueGeneratedOnAdd();
                 model.Property(x => x.AnimeID).IsRequired();
                 model.Property(x => x.AniDBUserId).IsRequired();
-                model.Property(x => x.Hash).IsRequired();
+                model.Property(x => x.Hash).IsRequired().HasMaxLength(32);
                 model.Property(x => x.CrossRefSource).IsRequired();
                 model.Property(x => x.EpisodeID).IsRequired();
                 model.Property(x => x.EpisodeOrder).IsRequired();
@@ -73,10 +73,10 @@ namespace Shoko.WebCache.Database
                 model.HasIndex(x => x.MD5).HasName("IX_FileHashes_MD5");
                 model.HasIndex(x => x.SHA1).HasName("IX_FileHashes_SHA1");
                 model.HasIndex(x => new { x.CRC32, x.FileSize }).HasName("IX_FileHashes_CRC32_FileSize");
-                model.Property(x => x.ED2K).IsRequired().ValueGeneratedNever();
-                model.Property(x => x.MD5).IsRequired();
-                model.Property(x => x.SHA1).IsRequired();
-                model.Property(x => x.CRC32).IsRequired();
+                model.Property(x => x.ED2K).IsRequired().HasMaxLength(32).ValueGeneratedNever();
+                model.Property(x => x.MD5).IsRequired().HasMaxLength(32);
+                model.Property(x => x.SHA1).IsRequired().HasMaxLength(40);
+                model.Property(x => x.CRC32).IsRequired().HasMaxLength(4);
                 model.Property(x => x.FileSize).IsRequired();
                 model.Property(x => x.CollisionApproved).IsRequired();
                 model.Property(x => x.AniDBUserId).IsRequired();
@@ -87,10 +87,10 @@ namespace Shoko.WebCache.Database
                 model.ToTable("FileHash_Collisions").HasKey(x => x.WebCache_FileHash_Collision_Id);
                 model.HasIndex(x => x.WebCache_FileHash_Collision_Unique).HasName("IX_FileHash_Collisions_Unique");
                 model.Property(x => x.WebCache_FileHash_Collision_Id).ValueGeneratedOnAdd();
-                model.Property(x => x.ED2K).IsRequired();
-                model.Property(x => x.MD5).IsRequired();
-                model.Property(x => x.SHA1).IsRequired();
-                model.Property(x => x.CRC32).IsRequired();
+                model.Property(x => x.ED2K).IsRequired().HasMaxLength(32);
+                model.Property(x => x.MD5).IsRequired().HasMaxLength(32);
+                model.Property(x => x.SHA1).IsRequired().HasMaxLength(40);
+                model.Property(x => x.CRC32).IsRequired().HasMaxLength(4);
                 model.Property(x => x.FileSize).IsRequired();
                 model.Property(x => x.CollisionApproved).IsRequired();
                 model.Property(x => x.AniDBUserId).IsRequired();
@@ -101,7 +101,7 @@ namespace Shoko.WebCache.Database
                 model.ToTable("Medias").HasKey(x => x.ED2K);
                 model.Property(x => x.AniDBUserId).IsRequired();
                 model.Property(x => x.CreationDate).IsRequired();
-                model.Property(x => x.ED2K).IsRequired().ValueGeneratedNever();
+                model.Property(x => x.ED2K).IsRequired().HasMaxLength(32);
                 model.Property(x => x.MediaInfo).IsRequired();
                 model.Property(x => x.Version).IsRequired();
             }

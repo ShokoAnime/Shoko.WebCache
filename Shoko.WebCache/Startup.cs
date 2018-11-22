@@ -30,7 +30,14 @@ namespace Shoko.WebCache
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
             services.AddSingleton(Configuration);
-            services.AddDbContext<WebCacheContext>(options=>options.UseSqlServer(Configuration.GetConnectionString("shokoconnection")));
+            services.AddDbContext<WebCacheContext>(options=>
+            {
+#if MYSQL
+                options.UseMySql(Configuration.GetConnectionString("shokoconnection"));
+#else
+                options.UseSqlServer(Configuration.GetConnectionString("shokoconnection"));
+#endif
+            });
             services.AddMemoryCache();
             services.AddSwaggerGen(c =>
             {
